@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinanceIQ — Live</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f; --surface: #111118; --surface2: #16161f;
+    --border: #1e1e2e; --accent: #c8f135; --accent2: #3df5a0;
+    --text: #e8e8f0; --muted: #6b6b80; --gold: #f5c842; --danger: #ff5f5f;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'DM Mono',monospace; min-height:100vh; display:flex; flex-direction:column; overflow-x:hidden; }
+  body::before { content:''; position:fixed; inset:0; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E"); pointer-events:none; z-index:0; opacity:0.4; }
+
+  /* ── SETUP ── */
+  #setup-screen { position:fixed; inset:0; background:var(--bg); z-index:200; display:flex; align-items:center; justify-content:center; padding:24px; overflow-y:auto; }
+  .setup-box { background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:40px; max-width:520px; width:100%; text-align:center; }
+  .setup-icon { width:56px; height:56px; background:var(--accent); border-radius:14px; display:flex; align-items:center; justify-content:center; font-family:'Syne',sans-serif; font-weight:800; font-size:24px; color:#000; margin:0 auto 24px; }
+  .setup-box h2 { font-family:'DM Serif Display',serif; font-size:26px; margin-bottom:10px; }
+  .setup-box p { color:var(--muted); font-size:12px; line-height:1.7; margin-bottom:24px; }
+  .setup-box a { color:var(--accent); text-decoration:none; }
+  .key-row { display:flex; flex-direction:column; gap:10px; margin-bottom:18px; text-align:left; }
+  .key-label { font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--muted); margin-bottom:2px; }
+  .key-badge { font-size:9px; background:rgba(200,241,53,0.1); color:var(--accent); border:1px solid rgba(200,241,53,0.2); padding:2px 7px; border-radius:10px; margin-left:6px; }
+  .key-badge.optional { background:rgba(107,107,128,0.15); color:var(--muted); border-color:var(--border); }
+  .key-input-wrap { position:relative; }
+  .key-input-wrap input { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:11px 40px 11px 14px; color:var(--text); font-family:'DM Mono',monospace; font-size:12px; outline:none; transition:border-color 0.2s; }
+  .key-input-wrap input:focus { border-color:rgba(200,241,53,0.5); }
+  .key-input-wrap input::placeholder { color:var(--muted); }
+  .toggle-eye { position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--muted); cursor:pointer; }
+  .start-btn { width:100%; background:var(--accent); border:none; border-radius:10px; padding:13px; font-family:'Syne',sans-serif; font-weight:700; font-size:14px; color:#000; cursor:pointer; transition:all 0.2s; margin-top:4px; }
+  .start-btn:hover { background:#d8ff50; transform:translateY(-1px); }
+  .setup-note { margin-top:16px; font-size:10px; color:var(--muted); line-height:1.6; }
+  .error-msg { color:var(--danger); font-size:11px; margin-top:6px; display:none; }
+  .divider { border:none; border-top:1px solid var(--border); margin:20px 0; }
+
+  /* ── HEADER ── */
+  header { display:flex; align-items:center; justify-content:space-between; padding:16px 28px; border-bottom:1px solid var(--border); position:relative; z-index:10; flex-wrap:wrap; gap:10px; }
+  .logo { display:flex; align-items:center; gap:10px; }
+  .logo-mark { width:34px; height:34px; background:var(--accent); border-radius:8px; display:flex; align-items:center; justify-content:center; font-family:'Syne',sans-serif; font-weight:800; font-size:15px; color:#000; }
+  .logo-text { font-family:'Syne',sans-serif; font-weight:700; font-size:17px; letter-spacing:-0.5px; }
+  .logo-text span { color:var(--accent); }
+  .header-right { display:flex; gap:8px; align-items:center; }
+  .live-dot { width:7px; height:7px; background:var(--accent2); border-radius:50%; animation:blink 2s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .live-label { font-size:10px; color:var(--accent2); letter-spacing:1px; text-transform:uppercase; }
+  .hdr-btn { background:none; border:1px solid var(--border); color:var(--muted); font-family:'DM Mono',monospace; font-size:10px; padding:4px 10px; border-radius:20px; cursor:pointer; transition:all 0.2s; letter-spacing:1px; text-transform:uppercase; }
+  .hdr-btn:hover { border-color:var(--accent); color:var(--accent); }
+
+  /* ── TICKER ── */
+  .ticker { border-top:1px solid var(--border); border-bottom:1px solid var(--border); overflow:hidden; padding:7px 0; }
+  .ticker-inner { display:flex; gap:40px; animation:ticker 40s linear infinite; white-space:nowrap; width:max-content; }
+  .ticker-item { font-size:10px; letter-spacing:1px; color:var(--muted); display:flex; gap:8px; align-items:center; }
+  .ticker-item strong { color:var(--text); }
+  .up { color:var(--accent2); } .down { color:var(--danger); }
+  @keyframes ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+
+  /* ── TABS ── */
+  .tabs { display:flex; gap:0; border-bottom:1px solid var(--border); position:relative; z-index:1; }
+  .tab { padding:12px 24px; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; transition:all 0.2s; background:none; border-top:none; border-left:none; border-right:none; font-family:'DM Mono',monospace; }
+  .tab:hover { color:var(--text); }
+  .tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+
+  /* ── PANELS ── */
+  .panel { display:none; flex:1; flex-direction:column; }
+  .panel.active { display:flex; }
+
+  /* ── CHAT ── */
+  main { flex:1; display:flex; flex-direction:column; max-width:900px; width:100%; margin:0 auto; padding:0 24px; position:relative; z-index:1; }
+  .hero { text-align:center; padding:40px 0 28px; animation:fadeUp 0.6s ease both; }
+  .hero-tag { display:inline-block; font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--accent); border:1px solid rgba(200,241,53,0.25); background:rgba(200,241,53,0.06); padding:5px 14px; border-radius:20px; margin-bottom:16px; }
+  .hero h1 { font-family:'DM Serif Display',serif; font-size:clamp(32px,5vw,54px); line-height:1.08; letter-spacing:-1px; margin-bottom:12px; }
+  .hero h1 em { font-style:italic; color:var(--accent); }
+  .hero p { color:var(--muted); font-size:12px; max-width:480px; margin:0 auto; line-height:1.7; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin:20px 0 28px; animation:fadeUp 0.7s 0.1s ease both; }
+  .chip { background:var(--surface); border:1px solid var(--border); color:var(--muted); font-size:11px; font-family:'DM Mono',monospace; padding:7px 14px; border-radius:20px; cursor:pointer; transition:all 0.2s; }
+  .chip:hover { border-color:var(--accent); color:var(--accent); background:rgba(200,241,53,0.05); }
+  .chat-scroll { flex:1; padding-bottom:130px; }
+  .message { display:flex; gap:14px; padding:18px 0; border-bottom:1px solid rgba(30,30,46,0.5); animation:fadeUp 0.4s ease both; }
+  .message-avatar { width:30px; height:30px; border-radius:7px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; font-family:'Syne',sans-serif; margin-top:2px; }
+  .message.user .message-avatar { background:var(--surface2); border:1px solid var(--border); color:var(--muted); }
+  .message.ai .message-avatar { background:var(--accent); color:#000; }
+  .message-content { flex:1; min-width:0; }
+  .message-label { font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:6px; }
+  .message.ai .message-label { color:var(--accent); }
+  .message-text { font-size:13px; line-height:1.8; color:var(--text); font-family:'DM Mono',monospace; white-space:pre-wrap; word-break:break-word; }
+  .message.user .message-text { color:#c0c0d0; }
+  .thinking { display:flex; gap:14px; padding:18px 0; }
+  .thinking-dots { display:flex; gap:4px; align-items:center; margin-top:6px; }
+  .thinking-dots span { width:5px; height:5px; border-radius:50%; background:var(--accent); animation:pulse 1.2s infinite; }
+  .thinking-dots span:nth-child(2){animation-delay:0.2s} .thinking-dots span:nth-child(3){animation-delay:0.4s}
+  @keyframes pulse { 0%,80%,100%{opacity:0.2;transform:scale(0.8)} 40%{opacity:1;transform:scale(1)} }
+  .input-bar { position:fixed; bottom:0; left:0; right:0; padding:16px 24px 24px; background:linear-gradient(to top,var(--bg) 70%,transparent); z-index:100; }
+  .input-inner { max-width:900px; margin:0 auto; display:flex; gap:10px; align-items:flex-end; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:10px 12px 10px 16px; transition:border-color 0.2s; }
+  .input-inner:focus-within { border-color:rgba(200,241,53,0.4); }
+  textarea { flex:1; background:transparent; border:none; outline:none; color:var(--text); font-family:'DM Mono',monospace; font-size:13px; line-height:1.6; resize:none; min-height:22px; max-height:120px; overflow-y:auto; }
+  textarea::placeholder { color:var(--muted); }
+  .send-btn { width:34px; height:34px; background:var(--accent); border:none; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:all 0.2s; }
+  .send-btn:hover { background:#d8ff50; transform:scale(1.05); }
+  .send-btn:disabled { opacity:0.3; cursor:not-allowed; transform:none; }
+  .send-btn svg { width:15px; height:15px; color:#000; }
+
+  /* ── STOCKS PANEL ── */
+  .stocks-panel { padding:24px; max-width:900px; width:100%; margin:0 auto; padding-bottom:40px; }
+  .section-title { font-family:'Syne',sans-serif; font-weight:700; font-size:14px; letter-spacing:-0.3px; margin-bottom:16px; display:flex; align-items:center; gap:10px; }
+  .section-title small { font-family:'DM Mono',monospace; font-size:10px; font-weight:400; color:var(--muted); letter-spacing:1px; }
+  .stock-search { display:flex; gap:10px; margin-bottom:24px; }
+  .stock-search input { flex:1; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:11px 16px; color:var(--text); font-family:'DM Mono',monospace; font-size:13px; outline:none; transition:border-color 0.2s; text-transform:uppercase; }
+  .stock-search input:focus { border-color:rgba(200,241,53,0.4); }
+  .stock-search input::placeholder { text-transform:none; color:var(--muted); }
+  .search-btn { background:var(--accent); border:none; border-radius:10px; padding:11px 20px; font-family:'Syne',sans-serif; font-weight:700; font-size:12px; color:#000; cursor:pointer; transition:all 0.2s; white-space:nowrap; }
+  .search-btn:hover { background:#d8ff50; }
+  .stock-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:16px; animation:fadeUp 0.4s ease both; }
+  .stock-card-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; flex-wrap:wrap; gap:10px; }
+  .stock-sym { font-family:'Syne',sans-serif; font-weight:800; font-size:22px; letter-spacing:-0.5px; }
+  .stock-name { font-size:11px; color:var(--muted); margin-top:2px; }
+  .stock-price { text-align:right; }
+  .stock-price-val { font-family:'Syne',sans-serif; font-weight:700; font-size:26px; letter-spacing:-1px; }
+  .stock-price-chg { font-size:12px; margin-top:3px; }
+  .stock-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:12px; border-top:1px solid var(--border); padding-top:14px; margin-top:4px; }
+  .stat { }
+  .stat-label { font-size:9px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin-bottom:3px; }
+  .stat-val { font-size:13px; font-weight:500; color:var(--text); }
+  .report-btn { width:100%; margin-top:16px; background:rgba(200,241,53,0.08); border:1px solid rgba(200,241,53,0.2); color:var(--accent); font-family:'DM Mono',monospace; font-size:12px; padding:10px; border-radius:10px; cursor:pointer; transition:all 0.2s; }
+  .report-btn:hover { background:rgba(200,241,53,0.15); }
+  .watchlist-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; margin-bottom:32px; }
+  .mini-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px; cursor:pointer; transition:all 0.2s; }
+  .mini-card:hover { border-color:rgba(200,241,53,0.3); transform:translateY(-2px); }
+  .mini-sym { font-family:'Syne',sans-serif; font-weight:700; font-size:14px; }
+  .mini-price { font-size:16px; font-weight:600; margin:6px 0 2px; }
+  .mini-chg { font-size:11px; }
+  .loading-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px; text-align:center; color:var(--muted); font-size:12px; display:flex; align-items:center; justify-content:center; gap:10px; min-height:80px; }
+  .spinner { width:16px; height:16px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.7s linear infinite; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  .error-card { background:var(--surface); border:1px solid rgba(255,95,95,0.2); border-radius:14px; padding:16px; color:var(--danger); font-size:12px; }
+
+  /* ── NEWS PANEL ── */
+  .news-panel { padding:24px; max-width:900px; width:100%; margin:0 auto; padding-bottom:40px; }
+  .news-grid { display:grid; gap:14px; }
+  .news-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px; transition:border-color 0.2s; text-decoration:none; display:block; animation:fadeUp 0.4s ease both; }
+  .news-card:hover { border-color:rgba(200,241,53,0.3); }
+  .news-source { font-size:9px; text-transform:uppercase; letter-spacing:1.5px; color:var(--accent); margin-bottom:8px; }
+  .news-title { font-family:'DM Serif Display',serif; font-size:16px; line-height:1.4; color:var(--text); margin-bottom:8px; }
+  .news-desc { font-size:11px; color:var(--muted); line-height:1.6; }
+  .news-meta { font-size:10px; color:var(--muted); margin-top:10px; opacity:0.6; }
+  .news-placeholder { text-align:center; padding:40px 20px; color:var(--muted); font-size:12px; line-height:1.8; }
+  .news-placeholder a { color:var(--accent); }
+  .newsapi-note { background:rgba(200,241,53,0.06); border:1px solid rgba(200,241,53,0.15); border-radius:12px; padding:16px; margin-bottom:20px; font-size:11px; color:var(--muted); line-height:1.7; }
+  .newsapi-note a { color:var(--accent); }
+
+  @keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+  ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-track{background:transparent} ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+</style>
+</head>
+<body>
+
+<!-- ── SETUP SCREEN ── -->
+<div id="setup-screen">
+  <div class="setup-box">
+    <div class="setup-icon">F</div>
+    <h2>Welcome to FinanceIQ</h2>
+    <p>Paste your keys below to unlock live stock data, real financial news, and AI-powered market analysis.</p>
+
+    <div class="key-row">
+      <div>
+        <span class="key-label">Anthropic API Key</span>
+        <span class="key-badge">Required</span>
+      </div>
+      <div class="key-input-wrap">
+        <input type="password" id="key-anthropic" placeholder="sk-ant-api03-..." />
+        <button class="toggle-eye" onclick="toggleVis('key-anthropic')">👁</button>
+      </div>
+      <div style="font-size:10px;color:var(--muted)">Get it free → <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a></div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="key-row">
+      <div>
+        <span class="key-label">NewsAPI Key</span>
+        <span class="key-badge optional">Optional — for live news</span>
+      </div>
+      <div class="key-input-wrap">
+        <input type="password" id="key-news" placeholder="abc123..." />
+        <button class="toggle-eye" onclick="toggleVis('key-news')">👁</button>
+      </div>
+      <div style="font-size:10px;color:var(--muted)">Free at → <a href="https://newsapi.org/register" target="_blank">newsapi.org/register</a> (100 req/day free)</div>
+    </div>
+
+    <div class="error-msg" id="setup-error">⚠ Anthropic key is required and must start with sk-ant-</div>
+    <button class="start-btn" onclick="startApp()">Launch FinanceIQ →</button>
+    <div class="setup-note">Keys saved in your browser. Stock prices load automatically via Yahoo Finance (no key needed).</div>
+  </div>
+</div>
+
+<!-- ── HEADER ── -->
+<header>
+  <div class="logo">
+    <div class="logo-mark">F</div>
+    <div class="logo-text">Finance<span>IQ</span></div>
+  </div>
+  <div class="header-right">
+    <div class="live-dot"></div>
+    <span class="live-label">Live</span>
+    <button class="hdr-btn" onclick="changeKey()">Keys</button>
+  </div>
+</header>
+
+<!-- ── LIVE TICKER ── -->
+<div class="ticker">
+  <div class="ticker-inner" id="ticker-inner">
+    <div class="ticker-item"><span style="color:var(--muted)">Loading live prices...</span></div>
+  </div>
+</div>
+
+<!-- ── TABS ── -->
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('chat')">💬 Ask AI</button>
+  <button class="tab" onclick="switchTab('stocks')">📈 Stocks</button>
+  <button class="tab" onclick="switchTab('news')">📰 News</button>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- TAB 1: CHAT -->
+<!-- ══════════════════════════════════════════ -->
+<div class="panel active" id="panel-chat" style="position:relative;z-index:1;">
+  <main>
+    <div class="hero">
+      <div class="hero-tag">AI Financial Analyst · Live Data</div>
+      <h1>Ask anything about<br><em>finance & markets</em></h1>
+      <p>Now powered with live stock prices. Ask about any ticker and I'll include real-time data in my analysis.</p>
+    </div>
+    <div class="chips" id="chips">
+      <div class="chip" onclick="sendSuggestion(this)">Analyze AAPL stock</div>
+      <div class="chip" onclick="sendSuggestion(this)">Is NVDA overvalued?</div>
+      <div class="chip" onclick="sendSuggestion(this)">Explain DCF valuation</div>
+      <div class="chip" onclick="sendSuggestion(this)">What causes yield curve inversion?</div>
+      <div class="chip" onclick="sendSuggestion(this)">Best value stocks right now?</div>
+      <div class="chip" onclick="sendSuggestion(this)">Explain options Greeks simply</div>
+    </div>
+    <div class="chat-scroll">
+      <div id="chat-messages"></div>
+    </div>
+  </main>
+  <div class="input-bar">
+    <div class="input-inner">
+      <textarea id="user-input" placeholder="Ask about any stock, market, or concept... (e.g. 'Analyze TSLA')" rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+      <button class="send-btn" id="send-btn" onclick="sendMessage()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- TAB 2: STOCKS -->
+<!-- ══════════════════════════════════════════ -->
+<div class="panel" id="panel-stocks">
+  <div class="stocks-panel">
+    <div class="section-title">Stock Lookup <small>Live via Yahoo Finance</small></div>
+    <div class="stock-search">
+      <input type="text" id="stock-input" placeholder="Enter ticker: AAPL, TSLA, NVDA..." onkeydown="if(event.key==='Enter')lookupStock()" />
+      <button class="search-btn" onclick="lookupStock()">Get Quote →</button>
+    </div>
+    <div id="stock-result"></div>
+
+    <div class="section-title" style="margin-top:28px;">Watchlist <small>Auto-refreshes every 60s</small></div>
+    <div class="watchlist-grid" id="watchlist-grid">
+      <div class="loading-card"><div class="spinner"></div> Loading...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- TAB 3: NEWS -->
+<!-- ══════════════════════════════════════════ -->
+<div class="panel" id="panel-news">
+  <div class="news-panel">
+    <div class="section-title">Financial News <small id="news-source-label"></small></div>
+    <div id="news-container">
+      <div class="loading-card"><div class="spinner"></div> Loading news...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════
+// KEYS & SETUP
+// ════════════════════════════════════════════
+let ANTHROPIC_KEY = localStorage.getItem('fiq_anthropic') || '';
+let NEWS_KEY      = localStorage.getItem('fiq_news') || '';
+
+window.onload = () => {
+  if (ANTHROPIC_KEY) {
+    document.getElementById('setup-screen').style.display = 'none';
+    initApp();
+  }
+};
+
+function toggleVis(id) {
+  const el = document.getElementById(id);
+  el.type = el.type === 'password' ? 'text' : 'password';
+}
+
+function startApp() {
+  const ak = document.getElementById('key-anthropic').value.trim();
+  const nk = document.getElementById('key-news').value.trim();
+  const err = document.getElementById('setup-error');
+  if (!ak.startsWith('sk-ant-')) { err.style.display='block'; return; }
+  err.style.display = 'none';
+  ANTHROPIC_KEY = ak;
+  NEWS_KEY = nk;
+  localStorage.setItem('fiq_anthropic', ak);
+  if (nk) localStorage.setItem('fiq_news', nk);
+  document.getElementById('setup-screen').style.display = 'none';
+  initApp();
+}
+
+function changeKey() {
+  document.getElementById('key-anthropic').value = ANTHROPIC_KEY;
+  document.getElementById('key-news').value = NEWS_KEY;
+  document.getElementById('setup-screen').style.display = 'flex';
+}
+
+// ════════════════════════════════════════════
+// TABS
+// ════════════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['chat','stocks','news'][i] === name));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  if (name === 'stocks') refreshWatchlist();
+  if (name === 'news') loadNews();
+}
+
+// ════════════════════════════════════════════
+// LIVE STOCK DATA — Yahoo Finance (no key needed)
+// ════════════════════════════════════════════
+const PROXY = 'https://api.allorigins.win/get?url=';
+const WATCHLIST_TICKERS = ['SPY','QQQ','AAPL','MSFT','NVDA','TSLA','AMZN','META','GOOGL','BRK-B','JPM','GLD'];
+const TICKER_DISPLAY = ['S&P500','NASDAQ','AAPL','MSFT','NVDA','TSLA','AMZN','META','GOOGL','BRK.B','JPM','GOLD'];
+
+async function fetchQuote(symbol) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
+  const res = await fetch(PROXY + encodeURIComponent(url));
+  const outer = await res.json();
+  const data = JSON.parse(outer.contents);
+  const meta = data.chart.result[0].meta;
+  return {
+    symbol: meta.symbol,
+    price: meta.regularMarketPrice,
+    prev: meta.chartPreviousClose || meta.previousClose,
+    high: meta.regularMarketDayHigh,
+    low:  meta.regularMarketDayLow,
+    vol:  meta.regularMarketVolume,
+    mktCap: meta.marketCap,
+    name: meta.longName || meta.shortName || meta.symbol,
+    currency: meta.currency || 'USD',
+    exchange: meta.exchangeName || '',
+  };
+}
+
+function fmt(n) { if (!n) return 'N/A'; return Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtBig(n) { if (!n) return 'N/A'; if (n>1e12) return '$'+(n/1e12).toFixed(2)+'T'; if (n>1e9) return '$'+(n/1e9).toFixed(2)+'B'; if (n>1e6) return '$'+(n/1e6).toFixed(2)+'M'; return '$'+n; }
+function pct(price,prev) { if (!prev) return ''; const c=((price-prev)/prev*100); return (c>=0?'+':'')+c.toFixed(2)+'%'; }
+
+async function loadTicker() {
+  try {
+    const results = await Promise.allSettled(WATCHLIST_TICKERS.slice(0,9).map(t => fetchQuote(t)));
+    const items = results
+      .map((r,i) => r.status==='fulfilled' ? r.value : null)
+      .filter(Boolean)
+      .map((q,i) => {
+        const chg = q.price - q.prev;
+        const up = chg >= 0;
+        const label = TICKER_DISPLAY[WATCHLIST_TICKERS.indexOf(q.symbol)] || q.symbol;
+        return `<div class="ticker-item"><strong>${label}</strong> <span>$${fmt(q.price)}</span> <span class="${up?'up':'down'}">${pct(q.price,q.prev)}</span></div>`;
+      }).join('');
+    const inner = document.getElementById('ticker-inner');
+    inner.innerHTML = items + items;
+  } catch(e) { /* keep placeholder */ }
+}
+
+async function refreshWatchlist() {
+  const grid = document.getElementById('watchlist-grid');
+  grid.innerHTML = '<div class="loading-card"><div class="spinner"></div> Fetching live prices...</div>';
+  const results = await Promise.allSettled(WATCHLIST_TICKERS.map(t => fetchQuote(t)));
+  grid.innerHTML = '';
+  results.forEach((r, i) => {
+    const div = document.createElement('div');
+    if (r.status === 'fulfilled') {
+      const q = r.value;
+      const chg = q.price - q.prev;
+      const up = chg >= 0;
+      div.className = 'mini-card';
+      div.onclick = () => { document.getElementById('stock-input').value = q.symbol; switchTab('stocks'); setTimeout(lookupStock,100); };
+      div.innerHTML = `
+        <div class="mini-sym">${TICKER_DISPLAY[i]||q.symbol}</div>
+        <div class="mini-price">$${fmt(q.price)}</div>
+        <div class="mini-chg ${up?'up':'down'}">${up?'▲':'▼'} ${pct(q.price,q.prev)}</div>`;
+    } else {
+      div.className = 'mini-card';
+      div.innerHTML = `<div class="mini-sym">${WATCHLIST_TICKERS[i]}</div><div style="font-size:11px;color:var(--muted);margin-top:6px;">Unavailable</div>`;
+    }
+    grid.appendChild(div);
+  });
+}
+
+async function lookupStock() {
+  const sym = document.getElementById('stock-input').value.trim().toUpperCase();
+  if (!sym) return;
+  const res = document.getElementById('stock-result');
+  res.innerHTML = '<div class="loading-card"><div class="spinner"></div> Fetching '+sym+'...</div>';
+  try {
+    const q = await fetchQuote(sym);
+    const chg = q.price - q.prev;
+    const up = chg >= 0;
+    res.innerHTML = `
+      <div class="stock-card">
+        <div class="stock-card-header">
+          <div>
+            <div class="stock-sym">${q.symbol}</div>
+            <div class="stock-name">${q.name} · ${q.exchange}</div>
+          </div>
+          <div class="stock-price">
+            <div class="stock-price-val">$${fmt(q.price)}</div>
+            <div class="stock-price-chg ${up?'up':'down'}">${up?'▲':'▼'} $${fmt(Math.abs(chg))} (${pct(q.price,q.prev)})</div>
+          </div>
+        </div>
+        <div class="stock-stats">
+          <div class="stat"><div class="stat-label">Prev Close</div><div class="stat-val">$${fmt(q.prev)}</div></div>
+          <div class="stat"><div class="stat-label">Day High</div><div class="stat-val">$${fmt(q.high)}</div></div>
+          <div class="stat"><div class="stat-label">Day Low</div><div class="stat-val">$${fmt(q.low)}</div></div>
+          <div class="stat"><div class="stat-label">Volume</div><div class="stat-val">${q.vol ? Number(q.vol).toLocaleString() : 'N/A'}</div></div>
+          <div class="stat"><div class="stat-label">Mkt Cap</div><div class="stat-val">${fmtBig(q.mktCap)}</div></div>
+          <div class="stat"><div class="stat-label">Currency</div><div class="stat-val">${q.currency}</div></div>
+        </div>
+        <button class="report-btn" onclick="generateReport('${q.symbol}','${fmt(q.price)}','${pct(q.price,q.prev)}','${q.name}')">🤖 Generate AI Report for ${q.symbol} →</button>
+      </div>`;
+  } catch(e) {
+    res.innerHTML = `<div class="error-card">⚠ Could not fetch data for "${sym}". Check the ticker symbol and try again.</div>`;
+  }
+}
+
+async function generateReport(sym, price, chg, name) {
+  switchTab('chat');
+  const prompt = `Generate a comprehensive stock report for ${name} (${sym}). Current price: $${price}, today's change: ${chg}. Include: 1) Company overview, 2) Key financial metrics to watch, 3) Recent performance context, 4) Bull case and bear case, 5) Key risks. Be specific and analytical.`;
+  document.getElementById('user-input').value = prompt;
+  sendMessage();
+}
+
+// ════════════════════════════════════════════
+// NEWS
+// ════════════════════════════════════════════
+async function loadNews() {
+  const container = document.getElementById('news-container');
+
+  if (NEWS_KEY) {
+    document.getElementById('news-source-label').textContent = 'via NewsAPI';
+    container.innerHTML = '<div class="loading-card"><div class="spinner"></div> Loading financial news...</div>';
+    try {
+      const url = `https://newsapi.org/v2/top-headlines?category=business&language=en&pageSize=20&apiKey=${NEWS_KEY}`;
+      const res = await fetch(PROXY + encodeURIComponent(url));
+      const outer = await res.json();
+      const data = JSON.parse(outer.contents);
+      if (data.status !== 'ok') throw new Error(data.message);
+      const articles = data.articles.filter(a => a.title && a.title !== '[Removed]');
+      container.innerHTML = '<div class="news-grid">' +
+        articles.map(a => `
+          <a class="news-card" href="${a.url}" target="_blank" rel="noopener">
+            <div class="news-source">${a.source?.name || 'News'}</div>
+            <div class="news-title">${escapeHTML(a.title)}</div>
+            ${a.description ? `<div class="news-desc">${escapeHTML(a.description.slice(0,140))}...</div>` : ''}
+            <div class="news-meta">${new Date(a.publishedAt).toLocaleString()}</div>
+          </a>`).join('') + '</div>';
+    } catch(e) {
+      container.innerHTML = `<div class="error-card">⚠ News error: ${e.message}. Check your NewsAPI key.</div>`;
+    }
+  } else {
+    // Fallback: curated RSS via allorigins
+    document.getElementById('news-source-label').textContent = 'via Yahoo Finance RSS';
+    container.innerHTML = '<div class="loading-card"><div class="spinner"></div> Loading headlines...</div>';
+    try {
+      const rssUrl = 'https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC&region=US&lang=en-US';
+      const res = await fetch(PROXY + encodeURIComponent(rssUrl));
+      const outer = await res.json();
+      const xml = new DOMParser().parseFromString(outer.contents, 'text/xml');
+      const items = [...xml.querySelectorAll('item')].slice(0,20);
+      if (!items.length) throw new Error('No items');
+      container.innerHTML = `
+        <div class="newsapi-note">
+          Showing Yahoo Finance headlines. For full financial news from 80,000+ sources, add a free <a href="https://newsapi.org/register" target="_blank">NewsAPI key</a> in Settings → Keys.
+        </div>
+        <div class="news-grid">` +
+        items.map(item => {
+          const title = item.querySelector('title')?.textContent || '';
+          const link  = item.querySelector('link')?.nextSibling?.textContent?.trim() || '#';
+          const desc  = item.querySelector('description')?.textContent || '';
+          const date  = item.querySelector('pubDate')?.textContent || '';
+          return `<a class="news-card" href="${link}" target="_blank" rel="noopener">
+            <div class="news-source">Yahoo Finance</div>
+            <div class="news-title">${escapeHTML(title)}</div>
+            ${desc ? `<div class="news-desc">${escapeHTML(desc.replace(/<[^>]*>/g,'').slice(0,140))}...</div>` : ''}
+            <div class="news-meta">${date ? new Date(date).toLocaleString() : ''}</div>
+          </a>`;
+        }).join('') + '</div>';
+    } catch(e) {
+      container.innerHTML = `
+        <div class="news-placeholder">
+          📰 Live news requires a free NewsAPI key.<br><br>
+          1. Go to <a href="https://newsapi.org/register" target="_blank">newsapi.org/register</a><br>
+          2. Sign up (free, instant)<br>
+          3. Click <strong>Keys</strong> in the top right and paste it<br><br>
+          <small>100 requests/day free — more than enough for personal use.</small>
+        </div>`;
+    }
+  }
+}
+
+// ════════════════════════════════════════════
+// CHAT WITH LIVE DATA INJECTION
+// ════════════════════════════════════════════
+const TICKER_RE = /\b([A-Z]{1,5})\b/g;
+
+let history = [
+  { role:'user', content:'You are FinanceIQ, an expert AI financial analyst. You have deep expertise in equity valuation, macroeconomics, fixed income, derivatives, portfolio theory, and market dynamics. When stock data is provided in the user message in brackets like [AAPL: $182.50, +1.2%], treat it as current live data and incorporate it into your analysis. Answer clearly and precisely. Use numbers, examples, and structure. Be direct — like a top Wall Street analyst. No markdown # headers. Use plain text with line breaks.' },
+  { role:'assistant', content:"Understood. I'm FinanceIQ with live market data. Ask me about any ticker or market concept." }
+];
+let isLoading = false;
+
+function escapeHTML(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function addMessage(role, text) {
+  const c = document.getElementById('chat-messages');
+  const d = document.createElement('div');
+  d.className = `message ${role}`;
+  d.innerHTML = `
+    <div class="message-avatar">${role==='user'?'YOU':'AI'}</div>
+    <div class="message-content">
+      <div class="message-label">${role==='user'?'You':'FinanceIQ'}</div>
+      <div class="message-text">${escapeHTML(text)}</div>
+    </div>`;
+  c.appendChild(d);
+  d.scrollIntoView({behavior:'smooth',block:'end'});
+}
+
+function showThinking() {
+  const c = document.getElementById('chat-messages');
+  const d = document.createElement('div');
+  d.className='thinking'; d.id='thinking';
+  d.innerHTML=`
+    <div class="message-avatar" style="background:var(--accent);color:#000;width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'Syne',sans-serif;flex-shrink:0;margin-top:2px;">AI</div>
+    <div class="message-content">
+      <div class="message-label" style="color:var(--accent);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;">FinanceIQ</div>
+      <div class="thinking-dots"><span></span><span></span><span></span></div>
+    </div>`;
+  c.appendChild(d);
+  d.scrollIntoView({behavior:'smooth',block:'end'});
+}
+
+function removeThinking() { const e=document.getElementById('thinking'); if(e) e.remove(); }
+
+// Detect tickers in user message and fetch live data
+async function enrichWithLiveData(text) {
+  const words = text.toUpperCase().match(/\b[A-Z]{1,5}\b/g) || [];
+  const commonWords = new Set(['A','I','AM','AN','AT','BE','BY','DO','GO','IF','IN','IS','IT','MY','NO','OF','ON','OR','SO','TO','UP','US','WE','THE','AND','FOR','ARE','BUT','NOT','YOU','ALL','CAN','HER','WAS','ONE','OUR','OUT','WHO','GET','NOW','HOW','ITS','HIM','HIS','HAS','HAD','DID','BIG','NEW','OLD','TOP','USE','SET','PUT','YET','FAQ','ROI','PE','EV','CEO','CFO','IPO','ETF','GDP','CPI','FED','ECB','IMF','S&P','QE','QT']);
+  const candidates = [...new Set(words)].filter(w => w.length >= 2 && !commonWords.has(w) && !/^\d+$/.test(w));
+  if (!candidates.length) return text;
+  const results = await Promise.allSettled(candidates.slice(0,3).map(t => fetchQuote(t)));
+  const snippets = results
+    .map((r,i) => r.status==='fulfilled' ? `[${candidates[i]}: $${fmt(r.value.price)}, ${pct(r.value.price,r.value.prev)}]` : null)
+    .filter(Boolean);
+  if (!snippets.length) return text;
+  return text + '\n\nLive data: ' + snippets.join(' ');
+}
+
+async function sendMessage() {
+  const input = document.getElementById('user-input');
+  const text = input.value.trim();
+  if (!text || isLoading) return;
+  if (!ANTHROPIC_KEY) { changeKey(); return; }
+
+  document.getElementById('chips').style.display = 'none';
+  isLoading = true;
+  document.getElementById('send-btn').disabled = true;
+  input.value = ''; input.style.height = 'auto';
+
+  addMessage('user', text);
+  const enriched = await enrichWithLiveData(text);
+  history.push({role:'user', content: enriched});
+  showThinking();
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key': ANTHROPIC_KEY,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body: JSON.stringify({model:'claude-sonnet-4-20250514', max_tokens:1500, messages:history})
+    });
+    const data = await res.json();
+    removeThinking();
+    if (data.error) { addMessage('ai','Error: '+data.error.message); }
+    else {
+      const reply = data.content?.[0]?.text || 'No response.';
+      history.push({role:'assistant',content:reply});
+      addMessage('ai',reply);
+    }
+  } catch(e) { removeThinking(); addMessage('ai','Network error. Check your connection.'); }
+
+  isLoading = false;
+  document.getElementById('send-btn').disabled = false;
+  input.focus();
+}
+
+function sendSuggestion(chip) { document.getElementById('user-input').value=chip.textContent; sendMessage(); }
+function handleKey(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();} }
+function autoResize(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
+
+// ════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════
+function initApp() {
+  loadTicker();
+  setInterval(loadTicker, 60000); // refresh ticker every 60s
+}
+</script>
+</body>
+</html>
